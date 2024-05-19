@@ -3,6 +3,9 @@ BIN=$(ROOT_DIR)/bin/memdb
 REVISION=$(shell git describe --tags 2>/dev/null || git log --format="v0.0-%h" -n 1 || echo "v0.0-unknown")
 SHELL=/bin/bash -euo pipefail
 
+prepare: config.yml
+	@true
+
 deps:
 	@go mod vendor
 
@@ -20,3 +23,8 @@ coverage-report: coverage.out
 	@go install github.com/boumenot/gocover-cobertura@latest
 	@gocover-cobertura < $(ROOT_DIR)/coverage.out > $(ROOT_DIR)/coverage.xml
 
+#.env:
+#	@cp .env.dist .env
+
+config.yml:
+	@cp config/config.yaml.dist config/config.yaml
