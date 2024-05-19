@@ -28,3 +28,4 @@ coverage-report: coverage.out
 
 config.yml:
 	@cp config/config.yaml.dist config/config.yaml
+	@cp config/config_test.yaml.dist config/config_test.yaml
