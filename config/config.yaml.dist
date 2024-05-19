@@ -1,0 +1,5 @@
+logger:
+  level: "debug"
+
+engine:
+  type: "in_memory"
