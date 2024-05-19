@@ -1,10 +1,10 @@
 logger:
-  level: "debug"
+  level: "info"
   output: "/log/output.log"
 
 engine:
   type: "in_memory"
 
 network:
-    address: "127.0.0.1:3223"
-    max_connections: 100
+  address: "127.0.0.1:4444"
+  max_connections: 50
