@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	initialization "github.com/addfs/go-mem-database/internal"
@@ -10,34 +9,14 @@ import (
 	"github.com/addfs/go-mem-database/internal/database/compute"
 	"github.com/addfs/go-mem-database/internal/database/storage"
 	"github.com/addfs/go-mem-database/internal/log"
+	"github.com/addfs/go-mem-database/internal/net/tcp"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 )
 
 func main() {
-	// Set up signal catching
-	sigs := make(chan os.Signal, 1)
-
-	// Catch all signals since we're not specifying which signal to catch
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-
-	// Now the program will not exit and will wait for incoming signals
-	// This is a goroutine which will keep on running in background
-	go func() {
-		s := <-sigs
-		switch s {
-		case syscall.SIGINT:
-			fmt.Println("Received SIGINT, exiting...")
-			os.Exit(0)
-		case syscall.SIGTERM:
-			fmt.Println("Received SIGTERM, exiting...")
-			os.Exit(0)
-		default:
-			fmt.Println("Unknown signal.")
-		}
-	}()
-
 	configPath := os.Getenv("CONFIG_PATH")
 	if configPath == "" {
 		configPath = "config/config.yaml"
@@ -76,10 +55,24 @@ func main() {
 	}
 	ctx := context.Background()
 
-	scanner := bufio.NewScanner(os.Stdin)
-	for scanner.Scan() {
-		command := scanner.Text()
-		result := db.HandleQuery(ctx, command)
-		fmt.Println("Received result:", result)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	server, err := tcp.NewServer(config, logger)
+	if err != nil {
+		//return nil, fmt.Errorf("failed to initialize network: %w", err)
 	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		server.HandleQueries(ctx, func(ctx context.Context, query []byte) []byte {
+			response := db.HandleQuery(ctx, string(query))
+			return []byte(response)
+		})
+	}()
+
+	wg.Wait()
 }
