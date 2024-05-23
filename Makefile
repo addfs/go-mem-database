@@ -18,7 +18,6 @@ test:
 	@gotestsum --no-color=false --junitfile $(ROOT_DIR)/junit-report.xml -- ./... -v -race -parallel 8 -count 1 -coverpkg=./... -coverprofile=$(ROOT_DIR)/coverage.out
 
 coverage-report: coverage.out
-	@sed -i '/\.qtpl/d' $(ROOT_DIR)/coverage.out
 	@go tool cover -func=$(ROOT_DIR)/coverage.out
 	@go install github.com/boumenot/gocover-cobertura@latest
 	@gocover-cobertura < $(ROOT_DIR)/coverage.out > $(ROOT_DIR)/coverage.xml

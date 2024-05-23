@@ -10,7 +10,6 @@ import (
 	"path"
 	"reflect"
 	"runtime"
-	"sync"
 	"testing"
 	"time"
 )
@@ -24,27 +23,19 @@ func TestTCPServer(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	_, file, _, _ := runtime.Caller(0)
-	rootPath := path.Clean(file + "/../../../../")
-	config := config.NewConfig(fmt.Sprintf("%s/config/config_test.yaml", rootPath))()
-
-	server, err := NewServer(config, zap.NewNop())
+	cfg := getConfig()
+	server, err := NewServer(cfg, zap.NewNop())
 	require.NoError(t, err)
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-
 	go func() {
-		defer wg.Done()
 		require.NoError(t, server.HandleQueries(ctx, func(ctx context.Context, buffer []byte) []byte {
 			require.Equal(t, request, string(buffer))
 			return []byte(response)
 		}))
 	}()
 	time.Sleep(100 * time.Millisecond)
-	//wg.Wait()
 
-	connection, err := net.Dial("tcp", config.Network.Address)
+	connection, err := net.Dial("tcp", cfg.Network.Address)
 	require.NoError(t, err)
 
 	_, err = connection.Write([]byte(request))
@@ -53,4 +44,10 @@ func TestTCPServer(t *testing.T) {
 	count, err := connection.Read(buffer)
 	require.NoError(t, err)
 	require.True(t, reflect.DeepEqual([]byte(response), buffer[:count]))
+}
+
+func getConfig() *config.Config {
+	_, file, _, _ := runtime.Caller(0)
+	rootPath := path.Clean(file + "/../../../../")
+	return config.NewConfig(fmt.Sprintf("%s/config/config_test.yaml", rootPath))()
 }

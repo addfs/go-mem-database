@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/addfs/go-mem-database/internal/config"
+	"github.com/addfs/go-mem-database/internal/tools"
 	"go.uber.org/zap"
 	"net"
 	"sync"
@@ -17,8 +18,8 @@ const defaultIdleTimeout = time.Minute * 5
 type Handler = func(context.Context, []byte) []byte
 
 type Server struct {
-	address string
-	//semaphore   tools.Semaphore
+	address     string
+	semaphore   tools.Semaphore
 	idleTimeout time.Duration
 	messageSize int
 	logger      *zap.Logger
@@ -30,8 +31,8 @@ func NewServer(config *config.Config, logger *zap.Logger) (*Server, error) {
 	}
 
 	return &Server{
-		address: config.Network.Address,
-		//semaphore:   tools.NewSemaphore(maxConnectionsNumber),
+		address:     config.Network.Address,
+		semaphore:   tools.NewSemaphore(config.Network.MaxConnections),
 		idleTimeout: defaultIdleTimeout,
 		messageSize: defaultMaxMessageSize,
 		logger:      logger,
@@ -63,12 +64,15 @@ func (s *Server) HandleQueries(ctx context.Context, handler Handler) error {
 			wg.Add(1)
 
 			go func(c net.Conn) {
+				s.semaphore.Acquire()
+
 				defer func() {
-					c.Close()
+					s.semaphore.Release()
 					wg.Done()
 				}()
 
 				s.handleConnection(ctx, c, handler)
+
 			}(conn)
 		}
 	}()
@@ -109,7 +113,6 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn, handler Ha
 
 		s.logger.Info("received message", zap.String("message", string(request[:n])))
 
-		// handler
 		response := handler(ctx, request[:n])
 		if _, err := conn.Write(response); err != nil {
 			s.logger.Error("failed to write to connection", zap.Error(err))
